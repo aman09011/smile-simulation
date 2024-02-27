@@ -3,10 +3,12 @@ const path = require('path');
 const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
+const cors = require('cors');
 
 const app = express();
-app.set('server.timeout', 240000);
-const PORT = 3000;
+app.use(cors());
+app.set('server.timeout', 300000);
+const PORT = 3001;
 
 const storage = multer.diskStorage({
   destination: './uploads/',
