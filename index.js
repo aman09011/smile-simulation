@@ -1,9 +1,11 @@
-import express from 'express'
-import multer from 'multer'
-import path from 'path'
-import processImage from './process';
+const multer = require('multer');
+const path = require('path');
+const express = require('express');
+const fs = require('fs');
+const axios = require('axios');
 
 const app = express();
+app.set('server.timeout', 240000);
 const PORT = 3000;
 
 const storage = multer.diskStorage({
@@ -36,16 +38,38 @@ function checkFileType(file, cb) {
 app.use('/uploads', express.static('uploads'));
 
 app.post('/upload', 
-  (req, res) => {
+  (req, res, next) => {
     upload(req, res, (err) => {
       if (err) {
         res.status(400).json({ error: err });
       } else if (!req.file) {
         res.status(400).json({ error: 'No file selected' });
+      } else {
+        next()
       }
     });
   },
-  processImage
+  async (req, res) => {
+    try {
+      const fileFormData = new FormData();
+      const file = req.file;
+      const fileData = fs.readFileSync(file.path);
+      const fileBlob = new Blob([fileData], { type: file.mimetype });
+      fileFormData.append('file', fileBlob, { filename: file.originalname });
+      const pythonServerUrl = 'http://localhost:3003';
+      const response = await axios.post(pythonServerUrl, fileFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      fs.writeFileSync('./after-images/' + file.filename, response.data);
+      const base64Image = Buffer.from(response.data).toString('base64');
+      res.send(base64Image);
+    } catch(error) {
+      console.log('processing error', error);
+      res.status(500).send('Error forwarding file');
+    }
+  }
 );
 
 app.listen(PORT, () => {
